@@ -1,0 +1,12 @@
+.DS_Store
+.env
+__pycache__/
+*.pyc
+.secrets/
+work/
+input/*.ogg
+input/*.mp3
+input/*.wav
+input/*.m4a
+input/*.mp4
+*.log
