@@ -177,7 +177,8 @@ python3 scripts/build_final_digest.py "work/stream" stream --limit 12
 - 19-24 строки
 - не больше 4000 символов
 - один пробел после таймкода
-- точка в конце каждой строки
+- без точки в конце каждой строки
+- подавать тезисы от лица спикеров через `мы`, а не через `автор`
 - используется как исходник для `<stem>_summary_short_with_links.md`
 
 `summary_outputs/<stem>_summary_with_links.md`:
@@ -202,6 +203,7 @@ python3 scripts/build_final_digest.py "work/stream" stream --limit 12
 - `scripts/build_final_digest.py` — сборка короткой версии с блоком тем; длинной версии только при наличии `summary.md`.
 - `scripts/smoke_test.py` — короткая проверка Groq API перед длинным прогоном.
 - `scripts/validate_outputs.py` — проверка обязательных артефактов.
+- `.claude/skills/summarize.md` — агентский скилл: Claude читает `summary_source.md`, генерирует выжимку по правилам формата и запускает build-скрипты. Вызывается через `/summarize` или автоматически при любой просьбе «сделать выжимку» в проекте.
 - `tests/test_merge_groq_parts.py` — локальный тест слияния частей.
 - `tests/test_build_context_links.py` — локальный тест генератора контекстных ссылок.
 - `tests/test_build_final_digest.py` — локальный тест сборки short-first выдачи и опциональной длинной версии с блоком тем.

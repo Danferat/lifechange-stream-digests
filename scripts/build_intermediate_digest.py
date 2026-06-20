@@ -12,7 +12,6 @@ from merge_groq_parts import reject_path_like_stem
 
 
 TIMECODE_RE = re.compile(r"^\d{2}:\d{2}:\d{2}\s+")
-TARGET_BLOCKS = 48
 
 
 def parse_args() -> argparse.Namespace:
@@ -40,11 +39,11 @@ def atomic_write_text(path: Path, content: str) -> None:
     tmp.replace(path)
 
 
-def read_blocks(path: Path, expected: int, kind: str) -> list[str]:
+def read_blocks(path: Path, kind: str, expected: int | None = None) -> list[str]:
     if not path.is_file():
         raise FileNotFoundError(path)
     lines = [line.rstrip() for line in path.read_text(encoding="utf-8").splitlines() if line.strip()]
-    if len(lines) != expected:
+    if expected is not None and len(lines) != expected:
         raise RuntimeError(f"{kind} must contain exactly {expected} non-empty lines: {path}")
     for line in lines:
         if not TIMECODE_RE.match(line):
@@ -75,8 +74,9 @@ def build_intermediate_digest(work_dir: Path, stem: str, labels: Path | None = N
     label_path = pick_label_path(summary_dir, safe_stem, labels)
     output_path = summary_dir / f"{safe_stem}_summary_intermediate.md"
 
-    source_lines = read_blocks(source_path, TARGET_BLOCKS, "summary_source")
-    label_lines = read_blocks(label_path, TARGET_BLOCKS, "labels")
+    source_lines = read_blocks(source_path, "summary_source")
+    block_count = len(source_lines)
+    label_lines = read_blocks(label_path, "labels", expected=block_count)
 
     chunks = ["# Промежуточная выжимка", ""]
     for label_line, source_line in zip(label_lines, source_lines, strict=True):

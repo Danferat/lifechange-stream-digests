@@ -50,9 +50,13 @@ class MergeGroqPartsTest(unittest.TestCase):
 
             merged = json.loads((out / "stream_segments.json").read_text(encoding="utf-8"))
             self.assertEqual(merged[2]["start"], 60.0)
-            self.assertEqual(len((out / "stream_summary_source.md").read_text(encoding="utf-8").splitlines()), 48)
             meta = json.loads((out / "stream_meta.json").read_text(encoding="utf-8"))
             self.assertEqual(meta["audio_duration_seconds"], 120.0)
+            expected_blocks = meta["summary_source_lines"]
+            self.assertEqual(
+                len((out / "stream_summary_source.md").read_text(encoding="utf-8").splitlines()),
+                expected_blocks,
+            )
 
 
 if __name__ == "__main__":

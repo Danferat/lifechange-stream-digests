@@ -28,6 +28,12 @@ def count_intermediate_blocks(path: Path) -> int:
     )
 
 
+def require_no_trailing_period(path: Path, text: str) -> None:
+    for line_number, line in enumerate(text.splitlines(), 1):
+        if line.rstrip().endswith("."):
+            raise SystemExit(f"{path.name} line {line_number} must not end with a period")
+
+
 def main() -> None:
     args = parse_args()
     work_dir = args.work_dir.expanduser().resolve()
@@ -47,8 +53,11 @@ def main() -> None:
         raise SystemExit("segments file is empty")
     if meta.get("provider") != "groq":
         raise SystemExit("meta provider must be groq")
-    if count_lines(out_dir / f"{args.stem}_summary_source.md") != 48:
-        raise SystemExit("summary_source must contain exactly 48 lines")
+    summary_source_lines = meta.get("summary_source_lines")
+    if not isinstance(summary_source_lines, int) or summary_source_lines < 1:
+        raise SystemExit("meta.json missing or invalid summary_source_lines")
+    if count_lines(out_dir / f"{args.stem}_summary_source.md") != summary_source_lines:
+        raise SystemExit(f"summary_source must contain exactly {summary_source_lines} lines")
 
     if args.check_final:
         summary = work_dir / "summary_outputs" / f"{args.stem}_summary.md"
@@ -64,13 +73,15 @@ def main() -> None:
         if missing_final:
             raise SystemExit("Missing final files:\n" + "\n".join(missing_final))
         intermediate_text = intermediate.read_text(encoding="utf-8")
-        if count_intermediate_blocks(intermediate) != 48:
-            raise SystemExit("summary_intermediate.md must contain exactly 48 timecoded blocks")
+        if count_intermediate_blocks(intermediate) != summary_source_lines:
+            raise SystemExit(
+                f"summary_intermediate.md must contain exactly {summary_source_lines} timecoded blocks"
+            )
         if "Полезные ссылки из чата" in intermediate_text:
             raise SystemExit("summary_intermediate.md must not include useful links block")
         if summary.is_file():
-            if count_lines(summary) != 48:
-                raise SystemExit("summary.md must contain exactly 48 lines")
+            if count_lines(summary) != summary_source_lines:
+                raise SystemExit(f"summary.md must contain exactly {summary_source_lines} lines")
             summary_text = summary.read_text(encoding="utf-8")
             if "Полезные ссылки из чата" in summary_text:
                 raise SystemExit("summary.md must not include useful links block")
@@ -87,6 +98,7 @@ def main() -> None:
         short_text = short.read_text(encoding="utf-8")
         if len(short_text) > 4000:
             raise SystemExit("summary_short.md must be <= 4000 characters")
+        require_no_trailing_period(short, short_text)
         if "Полезные ссылки из чата" in short_text:
             raise SystemExit("summary_short.md must not include useful links block")
         short_with_links_text = short_with_links.read_text(encoding="utf-8")

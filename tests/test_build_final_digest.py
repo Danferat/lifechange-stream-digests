@@ -30,7 +30,7 @@ class BuildFinalDigestTest(unittest.TestCase):
                 encoding="utf-8",
             )
             (groq_out / "stream_meta.json").write_text(
-                json.dumps({"provider": "groq"}, ensure_ascii=False),
+                json.dumps({"provider": "groq", "summary_source_lines": 48}, ensure_ascii=False),
                 encoding="utf-8",
             )
             (summary_out / "stream_summary.md").write_text(
@@ -44,7 +44,7 @@ class BuildFinalDigestTest(unittest.TestCase):
                 encoding="utf-8",
             )
             (summary_out / "stream_summary_short.md").write_text(
-                "\n".join(f"00:00:{index:02d} Краткая строка {index}." for index in range(19)) + "\n",
+                "\n".join(f"00:00:{index:02d} Краткая строка {index}" for index in range(19)) + "\n",
                 encoding="utf-8",
             )
             (groq_out / "stream_transcript.txt").write_text(
@@ -70,7 +70,7 @@ class BuildFinalDigestTest(unittest.TestCase):
             self.assertNotIn("Полезные ссылки из чата", summary)
             self.assertNotIn("Полезные ссылки из чата", short)
             self.assertTrue(long_with_links.startswith("00:00:00  Обсудили строку 0."))
-            self.assertTrue(short_with_links.startswith("00:00:00 Краткая строка 0."))
+            self.assertTrue(short_with_links.startswith("00:00:00 Краткая строка 0"))
             self.assertIn("\n\n## Полезные ссылки из чата:\n\n", long_with_links)
             self.assertIn("\n\n## Полезные ссылки из чата:\n\n", short_with_links)
             self.assertIn("• Arkham аналитика предикшнов", long_with_links)
@@ -98,7 +98,7 @@ class BuildFinalDigestTest(unittest.TestCase):
             self.assertIn("summary_short_with_links", missing_final.stderr.lower() + missing_final.stdout.lower())
 
             (summary_out / "stream_summary_short_with_links.md").write_text(short_with_links, encoding="utf-8")
-            polluted_short = short.replace("Краткая строка 0.", "Полезные ссылки из чата.")
+            polluted_short = short.replace("00:00:00 Краткая строка 0", "00:00:00 Полезные ссылки из чата")
             (summary_out / "stream_summary_short.md").write_text(polluted_short, encoding="utf-8")
             polluted_result = subprocess.run(
                 ["python3", str(VALIDATE_SCRIPT), str(work), "stream", "--check-final"],
@@ -107,6 +107,17 @@ class BuildFinalDigestTest(unittest.TestCase):
             )
             self.assertNotEqual(polluted_result.returncode, 0)
             self.assertIn("summary_short", polluted_result.stderr.lower() + polluted_result.stdout.lower())
+
+            (summary_out / "stream_summary_short.md").write_text(short, encoding="utf-8")
+            dotted_short = short.replace("00:00:01 Краткая строка 1", "00:00:01 Краткая строка 1.")
+            (summary_out / "stream_summary_short.md").write_text(dotted_short, encoding="utf-8")
+            dotted_result = subprocess.run(
+                ["python3", str(VALIDATE_SCRIPT), str(work), "stream", "--check-final"],
+                capture_output=True,
+                text=True,
+            )
+            self.assertNotEqual(dotted_result.returncode, 0)
+            self.assertIn("must not end with a period", dotted_result.stderr + dotted_result.stdout)
 
     def test_builds_short_only_export_when_long_summary_is_absent(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:
@@ -124,7 +135,7 @@ class BuildFinalDigestTest(unittest.TestCase):
                 encoding="utf-8",
             )
             (groq_out / "stream_meta.json").write_text(
-                json.dumps({"provider": "groq"}, ensure_ascii=False),
+                json.dumps({"provider": "groq", "summary_source_lines": 48}, ensure_ascii=False),
                 encoding="utf-8",
             )
             (summary_out / "stream_summary_intermediate.md").write_text(
@@ -134,7 +145,7 @@ class BuildFinalDigestTest(unittest.TestCase):
                 encoding="utf-8",
             )
             (summary_out / "stream_summary_short.md").write_text(
-                "\n".join(f"00:00:{index:02d} Краткая строка {index}." for index in range(19)) + "\n",
+                "\n".join(f"00:00:{index:02d} Краткая строка {index}" for index in range(19)) + "\n",
                 encoding="utf-8",
             )
             (groq_out / "stream_transcript.txt").write_text(

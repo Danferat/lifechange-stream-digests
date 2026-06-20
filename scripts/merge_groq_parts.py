@@ -5,12 +5,13 @@ from __future__ import annotations
 
 import argparse
 import json
+import math
 import tempfile
 from pathlib import Path
 from typing import Any
 
 
-TARGET_LINES = 48
+DEFAULT_BLOCK_SECONDS = 240
 
 
 def parse_args() -> argparse.Namespace:
@@ -18,6 +19,12 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("work_dir", type=Path, help="Work directory containing groq_outputs/")
     parser.add_argument("stem", help="Final output stem")
     parser.add_argument("parts", nargs="+", help="Part stems, for example part1 part2")
+    parser.add_argument(
+        "--block-seconds",
+        type=int,
+        default=DEFAULT_BLOCK_SECONDS,
+        help="Target seconds per summary block (default 240 = 4 min)",
+    )
     return parser.parse_args()
 
 
@@ -89,16 +96,19 @@ def write_transcript(path: Path, segments: list[dict[str, Any]]) -> None:
     atomic_write_text(path, "\n".join(lines).strip() + "\n")
 
 
-def write_summary_source(path: Path, segments: list[dict[str, Any]], total_duration: float) -> None:
+def write_summary_source(
+    path: Path, segments: list[dict[str, Any]], total_duration: float, block_seconds: int
+) -> int:
     if total_duration <= 0:
         raise RuntimeError("total duration must be positive")
-    bucket = total_duration / TARGET_LINES
+    target_lines = max(1, math.ceil(total_duration / block_seconds))
+    bucket = total_duration / target_lines
     lines: list[str] = []
     cursor = 0
     ordered = sorted(segments, key=lambda item: float(item["start"]))
-    for index in range(TARGET_LINES):
+    for index in range(target_lines):
         start = index * bucket
-        end = total_duration + 0.001 if index == TARGET_LINES - 1 else (index + 1) * bucket
+        end = total_duration + 0.001 if index == target_lines - 1 else (index + 1) * bucket
         texts: list[str] = []
         while cursor < len(ordered) and float(ordered[cursor]["start"]) < start:
             cursor += 1
@@ -110,6 +120,7 @@ def write_summary_source(path: Path, segments: list[dict[str, Any]], total_durat
             scan += 1
         lines.append(f"{fmt_ts(start)}  {' '.join(texts).strip()}")
     atomic_write_text(path, "\n".join(lines) + "\n")
+    return target_lines
 
 
 def main() -> None:
@@ -141,7 +152,9 @@ def main() -> None:
     merged.sort(key=lambda item: (float(item["start"]), float(item["end"])))
     atomic_write_json(out_dir / f"{stem}_segments.json", merged)
     write_transcript(out_dir / f"{stem}_transcript.txt", merged)
-    write_summary_source(out_dir / f"{stem}_summary_source.md", merged, total_duration)
+    summary_source_lines = write_summary_source(
+        out_dir / f"{stem}_summary_source.md", merged, total_duration, args.block_seconds
+    )
     atomic_write_json(
         out_dir / f"{stem}_meta.json",
         {
@@ -150,10 +163,13 @@ def main() -> None:
             "audio_duration_seconds": round(total_duration, 3),
             "segment_count": len(merged),
             "cost_usd": round(total_cost, 6),
-            "summary_source_lines": TARGET_LINES,
+            "summary_source_lines": summary_source_lines,
         },
     )
-    print(f"[{stem}] merged parts={len(args.parts)} segments={len(merged)} duration={total_duration:.1f}s")
+    print(
+        f"[{stem}] merged parts={len(args.parts)} segments={len(merged)} "
+        f"duration={total_duration:.1f}s blocks={summary_source_lines}"
+    )
 
 
 if __name__ == "__main__":
