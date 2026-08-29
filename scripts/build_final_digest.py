@@ -39,17 +39,26 @@ def build_final_digest(work_dir: Path, stem: str, limit: int) -> list[Path]:
     summary_path = summary_dir / f"{safe_stem}_summary.md"
     short_path = summary_dir / f"{safe_stem}_summary_short.md"
     transcript_path = groq_dir / f"{safe_stem}_transcript.txt"
+    mentioned_materials_path = summary_dir / f"{safe_stem}_summary_mentioned_materials.md"
     long_with_links_path = summary_dir / f"{safe_stem}_summary_with_links.md"
     short_with_links_path = summary_dir / f"{safe_stem}_summary_short_with_links.md"
 
     if not short_path.is_file():
         raise FileNotFoundError(short_path)
-    if not transcript_path.is_file():
-        raise FileNotFoundError(transcript_path)
 
     short = short_path.read_text(encoding="utf-8").strip()
-    transcript = transcript_path.read_text(encoding="utf-8")
-    context_block = render_link_block(build_links(transcript, limit)).strip()
+    if mentioned_materials_path.is_file():
+        titles = [
+            line.strip().lstrip("•").strip()
+            for line in mentioned_materials_path.read_text(encoding="utf-8").splitlines()
+            if line.strip()
+        ]
+        context_block = render_link_block(titles).strip()
+    else:
+        if not transcript_path.is_file():
+            raise FileNotFoundError(transcript_path)
+        transcript = transcript_path.read_text(encoding="utf-8")
+        context_block = render_link_block(build_links(transcript, limit)).strip()
 
     written = []
     if summary_path.is_file():

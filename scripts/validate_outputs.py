@@ -5,7 +5,11 @@ from __future__ import annotations
 
 import argparse
 import json
+import re
 from pathlib import Path
+
+
+AMA_LINE_RE = re.compile(r"^(?P<time>(?:\d+:)?\d{2}:\d{2})\s+-\s+.+$")
 
 
 def parse_args() -> argparse.Namespace:
@@ -13,6 +17,7 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("work_dir", type=Path)
     parser.add_argument("stem")
     parser.add_argument("--check-final", action="store_true", help="Also validate summary_outputs files")
+    parser.add_argument("--check-ama", action="store_true", help="Also validate reviewed AMA question timecodes")
     return parser.parse_args()
 
 
@@ -32,6 +37,18 @@ def require_no_trailing_period(path: Path, text: str) -> None:
     for line_number, line in enumerate(text.splitlines(), 1):
         if line.rstrip().endswith("."):
             raise SystemExit(f"{path.name} line {line_number} must not end with a period")
+
+
+def ama_seconds(value: str) -> int:
+    parts = [int(part) for part in value.split(":")]
+    if len(parts) == 2:
+        minutes, seconds = parts
+        hours = 0
+    else:
+        hours, minutes, seconds = parts
+    if minutes > 59 or seconds > 59:
+        raise ValueError(value)
+    return hours * 3600 + minutes * 60 + seconds
 
 
 def main() -> None:
@@ -106,6 +123,34 @@ def main() -> None:
             raise SystemExit("summary_short_with_links.md must start with summary_short.md content")
         if "Полезные ссылки из чата" not in short_with_links_text:
             raise SystemExit("summary_short_with_links.md must include useful links block")
+    if args.check_ama:
+        summary_dir = work_dir / "summary_outputs"
+        ama_timecodes = summary_dir / f"{args.stem}_ama_timecodes.md"
+        ama_manifest = summary_dir / f"{args.stem}_ama_timecodes.json"
+        ama_source = out_dir / f"{args.stem}_ama_source.md"
+        missing_ama = [str(path) for path in (ama_timecodes, ama_manifest, ama_source) if not path.is_file()]
+        if missing_ama:
+            raise SystemExit("Missing AMA files:\n" + "\n".join(missing_ama))
+        lines = [line.strip() for line in ama_timecodes.read_text(encoding="utf-8").splitlines() if line.strip()]
+        if not lines:
+            raise SystemExit("ama_timecodes.md must not be empty")
+        timestamps = []
+        for line in lines:
+            match = AMA_LINE_RE.match(line)
+            if not match:
+                raise SystemExit(f"invalid AMA timecode line: {line}")
+            timestamps.append(ama_seconds(match.group("time")))
+        if any(current >= following for current, following in zip(timestamps, timestamps[1:])):
+            raise SystemExit("AMA timecodes must be strictly increasing")
+        manifest = json.loads(ama_manifest.read_text(encoding="utf-8"))
+        questions = manifest.get("questions") if isinstance(manifest, dict) else None
+        if not isinstance(questions, list) or len(questions) != len(lines):
+            raise SystemExit("AMA manifest question count must match ama_timecodes.md")
+        if not all(isinstance(question, dict) and question.get("reviewed") is True for question in questions):
+            raise SystemExit("AMA manifest must contain reviewed question boundaries")
+        block_count = sum(1 for line in ama_source.read_text(encoding="utf-8").splitlines() if line.startswith("## "))
+        if block_count != len(lines):
+            raise SystemExit("ama_source.md block count must match ama_timecodes.md")
     print("VALIDATION_OK")
 
 

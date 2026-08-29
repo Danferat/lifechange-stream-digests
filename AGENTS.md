@@ -1,4 +1,4 @@
-# CLAUDE.md — выжимки стримов
+# AGENTS.md — выжимки стримов
 
 ## Проект
 
@@ -27,7 +27,7 @@
 - «summary для [stem]»
 - или любую аналогичную формулировку без упоминания АМА
 
-→ Немедленно выполнить скилл `.claude/skills/summarize.md` без запроса подтверждения
+→ Немедленно выполнить скилл `.Codex/skills/summarize.md` без запроса подтверждения
   и без ожидания явного вызова `/summarize`.
 
 Это основной рабочий режим проекта. Для обычной выжимки используется summarize; АМА обрабатывается только после явного выбора режима.
@@ -43,7 +43,6 @@
 | `scripts/build_intermediate_digest.py` | Сборка промежуточной выжимки (N блоков + метки) |
 | `scripts/build_final_digest.py` | Сборка финальных файлов с блоком тем |
 | `scripts/build_ama_timecodes.py` | Кандидаты и проверенные границы вопросов АМА |
-| `scripts/segment_lookup.py` | Точный таймкод темы по segments.json (--search / --around), обязателен для summary_short.md |
 | `scripts/validate_outputs.py` | Проверка артефактов |
 | `scripts/smoke_test.py` | Быстрая проверка Groq API |
 

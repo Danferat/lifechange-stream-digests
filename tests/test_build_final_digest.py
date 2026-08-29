@@ -173,6 +173,57 @@ class BuildFinalDigestTest(unittest.TestCase):
             )
             self.assertIn("VALIDATION_OK", result.stdout)
 
+    def test_mentioned_materials_file_overrides_transcript_link_detection(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            work = Path(tmp)
+            summary_out = work / "summary_outputs"
+            groq_out = work / "groq_outputs"
+            summary_out.mkdir()
+            groq_out.mkdir()
+            (groq_out / "stream_segments.json").write_text(
+                json.dumps([{"start": 0, "end": 1, "text": "старт"}], ensure_ascii=False),
+                encoding="utf-8",
+            )
+            (groq_out / "stream_summary_source.md").write_text(
+                "\n".join(f"00:00:{index:02d}  строка" for index in range(19)) + "\n",
+                encoding="utf-8",
+            )
+            (groq_out / "stream_meta.json").write_text(
+                json.dumps({"provider": "groq", "summary_source_lines": 19}, ensure_ascii=False),
+                encoding="utf-8",
+            )
+            (summary_out / "stream_summary_intermediate.md").write_text(
+                "# Промежуточная выжимка\n\n"
+                + "\n\n".join(f"## 00:00:{index:02d} Блок {index}.\n\nсырой блок" for index in range(19))
+                + "\n",
+                encoding="utf-8",
+            )
+            (summary_out / "stream_summary_short.md").write_text(
+                "\n".join(f"00:00:{index:02d} Краткая строка {index}" for index in range(19)) + "\n",
+                encoding="utf-8",
+            )
+            (summary_out / "stream_summary_mentioned_materials.md").write_text(
+                "• Robinhood Chain\n• Alchemy для RPC\n",
+                encoding="utf-8",
+            )
+            (groq_out / "stream_transcript.txt").write_text(
+                "00:00:00  Упомянули Arkham prediction analytics и VPS privilege escalation.",
+                encoding="utf-8",
+            )
+
+            subprocess.run(
+                ["python3", str(DIGEST_SCRIPT), str(work), "stream", "--limit", "5"],
+                check=True,
+                capture_output=True,
+                text=True,
+            )
+
+            short_with_links = (summary_out / "stream_summary_short_with_links.md").read_text(encoding="utf-8")
+            self.assertIn("• Robinhood Chain", short_with_links)
+            self.assertIn("• Alchemy для RPC", short_with_links)
+            self.assertNotIn("Arkham", short_with_links)
+            self.assertNotIn("Уязвимость для VPS", short_with_links)
+
 
 if __name__ == "__main__":
     unittest.main()
