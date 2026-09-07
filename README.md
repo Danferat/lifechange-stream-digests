@@ -24,7 +24,7 @@
 ## Технологии
 
 - Язык: Python 3
-- Внешние утилиты: `ffmpeg`, `ffprobe`
+- Внешние утилиты: `ffmpeg`, `ffprobe`, `yt-dlp` (только для стримов по ссылке на YouTube)
 - Внешний API: Groq audio transcriptions
 - Модель: `whisper-large-v3-turbo`
 - База данных: не используется
@@ -70,6 +70,30 @@ GROQ_API_KEY_FALLBACK=gsk_...
 Альтернативно можно использовать файлы `.secrets/groq_primary.key` и `.secrets/groq_fallback.key`.
 
 Положите аудио в `input/`.
+
+### Если источник - ссылка на YouTube, а не локальный файл
+
+Установите `yt-dlp` (один раз):
+
+```bash
+brew install yt-dlp ffmpeg
+```
+
+Скачайте аудиодорожку сразу в рабочую папку стрима:
+
+```bash
+mkdir -p work/<stem>/groq_outputs work/<stem>/summary_outputs
+yt-dlp --no-playlist -f "bestaudio" -x --audio-format mp3 --audio-quality 5 \
+  -o "work/<stem>/source.%(ext)s" "https://www.youtube.com/watch?v=..."
+```
+
+Дальше файл `work/<stem>/source.mp3` обрабатывается как обычный локальный источник - см. ниже.
+
+Если `yt-dlp` выдаёт `HTTP Error 403` или "Only images are available for download", версия устарела:
+
+```bash
+brew upgrade yt-dlp
+```
 
 ## Пробный запуск
 
